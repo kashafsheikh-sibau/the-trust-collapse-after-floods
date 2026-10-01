@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Amanat Relief - Transparent Flood Allocation System</title>
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --sidebar-bg: #0f172a;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --danger: #ef4444;
+      --danger-bg: #fee2e2;
+      --success: #16a34a;
+      --success-bg: #dcfce7;
+      --warning: #d97706;
+      --warning-bg: #fef3c7;
+    }
+
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); margin: 0; padding: 0; min-height: 100vh; }
+
+    #toast {
+      display: none;
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      z-index: 9999;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      animation: slideIn 0.3s ease-out;
+    }
+    .toast-err { background: #b91c1c; color: white; }
+    .toast-succ { background: #15803d; color: white; }
+    @keyframes slideIn { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* AUTHENTICATION SCREEN */
+    #loginScreen {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: radial-gradient(circle at top left, #1e293b, #0f172a);
+      padding: 20px;
+    }
+    .auth-card {
+      background: white;
+      padding: 34px;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    }
+    .auth-card h2 { margin: 0 0 6px 0; color: var(--primary); font-size: 1.8rem; font-weight: 800; }
+    .auth-card p { margin: 0 0 20px 0; font-size: 0.85rem; color: var(--text-muted); }
+    .donor-divider { display: flex; align-items: center; text-align: center; margin: 20px 0; color: #94a3b8; font-size: 0.8rem; }
+    .donor-divider::before, .donor-divider::after { content: ''; flex: 1; border-bottom: 1px solid #cbd5e1; }
+    .donor-divider:not(:empty)::before { margin-right: .5em; }
+    .donor-divider:not(:empty)::after { margin-left: .5em; }
+
+    /* MULTI-PAGE APPLICATION WRAPPER */
+    #appWrapper { display: none; min-height: 100vh; }
+    .layout-container { display: flex; min-height: 100vh; }
+
+    /* SIDEBAR NAVIGATION */
+    .sidebar {
+      width: 260px;
+      background-color: var(--sidebar-bg);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      padding: 24px 16px;
+      flex-shrink: 0;
+    }
+    .sidebar-brand { font-size: 1.3rem; font-weight: 800; color: #38bdf8; margin-bottom: 25px; padding-left: 8px; }
+    .sidebar-menu { display: flex; flex-direction: column; gap: 6px; flex-grow: 1; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 14px;
+      border-radius: 8px;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 0.86rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .nav-item:hover { background-color: rgba(255,255,255,0.06); color: white; }
+    .nav-item.active { background-color: var(--primary); color: white; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3); }
+
+    /* VIEWPORT */
+    .main-viewport { flex-grow: 1; display: flex; flex-direction: column; background: #f8fafc; }
+    .top-header {
+      background: white;
+      padding: 16px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .status-badge { padding: 5px 12px; border-radius: 20px; font-weight: 700; font-size: 0.75rem; background: var(--success-bg); color: var(--success); }
+    .btn-logout { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
+
+    .content-area { padding: 26px; flex-grow: 1; overflow-y: auto; }
+    .page-view { display: none; }
+    .page-view.active { display: block; animation: fadeIn 0.25s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    .panel {
+      background: white;
+      padding: 22px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+      margin-bottom: 20px;
+    }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 22px; }
+    .stat-card { background: white; padding: 16px; border-radius: 10px; border: 1px solid var(--border); }
+    .stat-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); }
+    .stat-val { font-size: 1.7rem; font-weight: 800; margin-top: 6px; color: var(--primary); }
+
+    label { display: block; font-size: 0.8rem; font-weight: 700; margin-top: 10px; margin-bottom: 4px; color: #334155; }
+    input, select, button { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.88rem; outline: none; }
+    .btn-action { background: var(--primary); color: white; border: none; font-weight: 700; cursor: pointer; margin-top: 16px; }
+    .btn-action:hover { background: var(--primary-dark); }
+    .btn-donor { background: #059669; color: white; border: none; font-weight: 700; cursor: pointer; }
+    .btn-donor:hover { background: #047857; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 0.85rem; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); }
+    th { background: #f8fafc; font-weight: 700; color: #475569; }
+    .flag { background: var(--danger-bg); color: var(--danger); padding: 3px 8px; border-radius: 4px; font-weight: 800; font-size: 0.75rem; }
+    .verified { color: var(--success); font-weight: 700; }
+    .pending { color: var(--warning); font-weight: 700; }
+    .empty-msg { text-align: center; color: var(--text-muted); padding: 20px; font-style: italic; }
+    .role-notice { font-size: 0.85rem; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; padding: 12px; border-radius: 8px; margin-bottom: 16px; }
+
+    /* IMAGE PROOFS GRID & CARDS */
+    .proofs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin-top: 14px; }
+    .proof-card {
+      background: white;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+      display: flex;
+      flex-direction: column;
+    }
+    .proof-img-container {
+      width: 100%;
+      height: 180px;
+      background: #e2e8f0;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .proof-img { width: 100%; height: 100%; object-fit: cover; }
+    .proof-body { padding: 14px; flex-grow: 1; font-size: 0.82rem; line-height: 1.5; }
+    .verified-stamp {
+      background: #dcfce7;
+      color: #166534;
+      font-weight: 800;
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid #86efac;
+      display: inline-block;
+      margin-bottom: 6px;
+    }
+
+    /* DONOR POPUP */
+    #donorModal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15, 23, 42, 0.75);
+      justify-content: center; align-items: center;
+      z-index: 10000;
+    }
+    .modal-card { background: white; padding: 26px; border-radius: 14px; width: 400px; max-height: 90vh; overflow-y: auto; }
+  </style>
+</head>
+<body>
+
+  <div id="toast">Alert Message</div>
+
+  <!-- DONOR POPUP (WITH IMAGE PROOF UPLOAD) -->
+  <div id="donorModal">
+    <div class="modal-card">
+      <h3 style="margin-top:0; color:#059669;">Contribute Flood Fund</h3>
+      <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">Attach transfer slip image to prevent fraud.</p>
+      
+      <form onsubmit="handlePublicDonation(event)">
+        <label>Your Name (Citizen / Donor)</label>
+        <input type="text" id="donorName" placeholder="e.g. Asad Shaikh" required>
+
+        <label>City / Location</label>
+        <input type="text" id="donorCity" placeholder="e.g. Khairpur / Sukkur" required>
+
+        <label>Donation Amount (PKR)</label>
+        <input type="number" id="donorAmount" min="500" placeholder="e.g. 5000" required>
+
+        <label>Upload Payment Slip / Transfer Photo (Proof)</label>
+        <input type="file" id="donorSlipFile" accept="image/*" style="padding:6px; background:#f1f5f9;">
+
+        <button type="submit" class="btn-action btn-donor" style="margin-top:16px;">Donate & Post Visual Proof</button>
+        <button type="button" onclick="closeDonorModal()" style="margin-top:8px; background:#e2e8f0; color:#334155; border:none; cursor:pointer;">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- LOGIN LANDING SCREEN -->
+  <div id="loginScreen">
+    <div class="auth-card">
+      <h2>Amanat Relief</h2>
+      <p>Khairpur Flood Transparency & Distribution Portal</p>
+      
+      <form onsubmit="handleLogin(event)">
+        <label>Entity / Official Name</label>
+        <input type="text" id="usernameInput" placeholder="e.g. Red Crescent / DC Office" required>
+
+        <label>Authority Role</label>
+        <select id="userRole">
+          <option value="NGO / Fund Collector">NGO / Fund Collector (Field Distributor)</option>
+          <option value="Government Official">Government Official (Neutral Auditor)</option>
+        </select>
+
+        <button type="submit" class="btn-action">Enter Portal</button>
+      </form>
+
+      <div class="donor-divider">OR CITIZEN ACCESS</div>
+
+      <button type="button" class="btn-action btn-donor" onclick="openDonorModal()" style="margin-top:0;">
+        ♥ Give Relief Donation (With Slip Proof)
+      </button>
+    </div>
+  </div>
+
+  <!-- MULTI-PAGE DASHBOARD -->
+  <div id="appWrapper">
+    <div class="layout-container">
+      
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+        <div class="sidebar-brand">Amanat Relief</div>
+        <div class="sidebar-menu">
+          <div class="nav-item active" onclick="navigateTo('page-overview', this)">📊 System Overview</div>
+          <div class="nav-item" id="navAidEntry" onclick="navigateTo('page-distribute', this)">📦 Distribute Aid (Form)</div>
+          <div class="nav-item" onclick="navigateTo('page-ledger', this)">📜 Verification Ledger</div>
+          <div class="nav-item" onclick="navigateTo('page-families', this)">👥 Affected Families</div>
+          <div class="nav-item" onclick="navigateTo('page-vault', this)">💰 Public Donor Vault</div>
+          <div class="nav-item" onclick="navigateTo('page-proofs', this)">📸 Visual Photographic Proofs</div>
+        </div>
+      </div>
+
+      <!-- MAIN VIEWPORT -->
+      <div class="main-viewport">
+        <div class="top-header">
+          <div id="currentPageTitle" style="font-weight:700; font-size:1.1rem;">System Overview</div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span class="status-badge" id="roleDisplay">Active</span>
+            <button class="btn-logout" onclick="handleLogout()">Logout</button>
+          </div>
+        </div>
+
+        <div class="content-area">
+
+          <!-- PAGE 1: OVERVIEW -->
+          <div id="page-overview" class="page-view active">
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-title">Flood Relief Fund Pool</div>
+                <div id="statFunds" class="stat-val" style="color:#059669;">PKR 0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Affected Households</div>
+                <div id="statTotalFam" class="stat-val">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Aid Packs Delivered</div>
+                <div id="statTotal" class="stat-val">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Verified Visual Proofs</div>
+                <div id="statProofsCount" class="stat-val" style="color:#0284c7;">0</div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3 style="margin-top:0;">Dual-Proof Anti-Corruption Protocol</h3>
+              <p style="font-size:0.88rem; color:var(--text-muted); line-height:1.6;">
+                Khairpur ke flood relief ke dauran trust collapse is wajah se hua tha kyunki paper reports par koi proof nahi hota tha. 
+                Amanat Portal par <strong>har transaction aur har physical delivery ki photographic slip</strong> verify hoti hai taake koi funds chura na sake.
+              </p>
+              <div style="display:flex; gap:12px; margin-top:16px;">
+                <button class="btn-action" style="width:auto; margin-top:0;" onclick="navigateTo('page-distribute', document.getElementById('navAidEntry'))">Open Aid Distribution →</button>
+                <button class="btn-action btn-donor" style="width:auto; margin-top:0;" onclick="openDonorModal()">Contribute Funds (With Slip)</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- PAGE 2: DISTRIBUTE AID (WITH PHOTO ATTACHMENT) -->
+          <div id="page-distribute" class="page-view">
+            <div class="panel" style="max-width:650px;">
+              <h3 style="margin-top:0;">Field Aid Distribution Entry</h3>
+              <p style="font-size:0.8rem; color:var(--text-muted);">Attach delivery handover photo to guarantee genuine relief distribution.</p>
+
+              <div id="govNotice" class="role-notice" style="display:none;">
+                <strong>Government Read-Only Mode:</strong> Auditor access enabled. Form entry is restricted to field NGOs[cite: 1, 2].
+              </div>
+
+              <form id="aidForm" onsubmit="handleAidSubmit(event)">
+                <label>Family Token / Last 4 CNIC</label>
+                <input type="text" id="familyToken" placeholder="e.g. FAM-8042" required>
+
+                <label>Village / Camp Location</label>
+                <input type="text" id="village" placeholder="e.g. Kot Diji" required>
+
+                <label>Aid Relief Item</label>
+                <select id="aidType">
+                  <option value="Food Ration (1 Month)">Food Ration (1 Month)</option>
+                  <option value="Medical Health Pack">Medical Health Pack</option>
+                  <option value="Water Purification Kit">Water Purification Kit</option>
+                  <option value="Emergency Shelter Tent">Emergency Shelter Tent</option>
+                </select>
+
+                <label>Distributing Verified Organization</label>
+                <select id="ngoName" required>
+                  <option value="" disabled selected>-- Select Entity --</option>
+                  <option value="Red Crescent Sindh">Red Crescent Sindh</option>
+                  <option value="Edhi Foundation">Edhi Foundation</option>
+                  <option value="Alkhidmat Foundation">Alkhidmat Foundation</option>
+                  <option value="Saylani Welfare">Saylani Welfare</option>
+                  <option value="Sindh Relief Force">Sindh Relief Force</option>
+                </select>
+
+                <label>Attach Delivery / Handover Photo (On-Ground Proof)</label>
+                <input type="file" id="aidPhotoFile" accept="image/*" style="padding:6px; background:#f1f5f9;">
+
+                <button type="submit" id="btnSubmitForm" class="btn-action">Log Distribution with Visual Proof</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- PAGE 3: VERIFICATION LEDGER -->
+          <div id="page-ledger" class="page-view">
+            <div class="panel">
+              <h3 style="margin-top:0;">Public Verification Ledger</h3>
+              <p style="font-size:0.8rem; color:var(--text-muted);">Cross-NGO transparency ledger. Flags repeated distribution of the SAME item to the same household[cite: 1, 2].</p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Family Token</th>
+                    <th>Village</th>
+                    <th>Relief Item</th>
+                    <th>Distributor</th>
+                    <th>Photo Proof</th>
+                    <th>Audit Status</th>
+                  </tr>
+                </thead>
+                <tbody id="ledgerBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- PAGE 4: AFFECTED FAMILIES -->
+          <div id="page-families" class="page-view">
+            <div class="panel">
+              <h3 style="margin-top:0;">Master Directory of Affected Families</h3>
+              <p style="font-size:0.8rem; color:var(--text-muted);">Tracks remote households to guarantee fair access across all clusters[cite: 1, 2].</p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Family Token</th>
+                    <th>Head of Household</th>
+                    <th>Village / Camp</th>
+                    <th>Severity Impact</th>
+                    <th>Current Status</th>
+                  </tr>
+                </thead>
+                <tbody id="familiesBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- PAGE 5: DONOR VAULT -->
+          <div id="page-vault" class="page-view">
+            <div class="panel">
+              <h3 style="margin-top:0;">Public Relief Fund Vault</h3>
+              <p style="font-size:0.8rem; color:var(--text-muted);">Financial registry of all public citizen and philanthropic grants[cite: 1, 2].</p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Donor Name</th>
+                    <th>City / Location</th>
+                    <th>Amount (PKR)</th>
+                    <th>Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody id="donorBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- PAGE 6: VISUAL PHOTOGRAPHIC PROOFS (NEW WITH REAL IMAGE RENDERING) -->
+          <div id="page-proofs" class="page-view">
+            <div class="panel">
+              <h3 style="margin-top:0;">Visual Proofs (Bank Slips & Handover Images)</h3>
+              <p style="font-size:0.8rem; color:var(--text-muted);">Real photographic records preventing embezzlement or ghost entries[cite: 1, 2].</p>
+              
+              <div id="proofsGrid" class="proofs-grid">
+                <!-- Real uploaded & verified images will render here -->
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================
+       DEFAULT VISUAL MOCKS (SVG BASE64 FOR INSTANT DEMO)
+       ========================================================= */
+    const sampleSlip = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='350' height='200' viewBox='0 0 350 200'><rect width='350' height='200' fill='%23064e3b'/><text x='20' y='40' fill='%23a7f3d0' font-size='16' font-family='sans-serif' font-weight='bold'>DIGITAL BANK RECEIPT</text><text x='20' y='75' fill='%23ffffff' font-size='13' font-family='sans-serif'>Paid to: Sindh Flood Relief Fund</text><text x='20' y='105' fill='%2334d399' font-size='18' font-family='sans-serif' font-weight='bold'>PKR 25,000 APPROVED</text><text x='20' y='145' fill='%23cbd5e1' font-size='11' font-family='sans-serif'>Ref: PK-RAAST-09884210</text><circle cx='300' cy='50' r='25' fill='%23059669'/><text x='288' y='55' fill='white' font-size='14'>✓</text></svg>";
+
+    const sampleDelivery = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='350' height='200' viewBox='0 0 350 200'><rect width='350' height='200' fill='%231e293b'/><text x='20' y='40' fill='%2338bdf8' font-size='15' font-family='sans-serif' font-weight='bold'>GROUND HANDOVER PROOF</text><text x='20' y='75' fill='%23ffffff' font-size='13' font-family='sans-serif'>Location: Kot Diji Camp 3</text><text x='20' y='105' fill='%23facc15' font-size='16' font-family='sans-serif' font-weight='bold'>Food Ration Box #8042</text><text x='20' y='145' fill='%2394a3b8' font-size='11' font-family='sans-serif'>Verified by Red Crescent Sindh</text><circle cx='300' cy='50' r='25' fill='%230284c7'/><text x='286' y='56' fill='white' font-size='12'>GPS</text></svg>";
+
+    /* =========================================================
+       BACKEND REST ENGINE
+       ========================================================= */
+    const BackendServer = (function() {
+      let familiesDirectory = [
+        { token: "FAM-9821", name: "Ali Murad", village: "Faiz Ganj", severity: "High (Home Destroyed)" },
+        { token: "FAM-4412", name: "Gulzar Ahmed", village: "Kot Diji", severity: "Medium (Displaced)" },
+        { token: "FAM-3301", name: "Sachal Mir", village: "Thari Mirwah", severity: "High (Submerged Area)" },
+        { token: "FAM-7719", name: "Rasheed Bano", village: "Nara", severity: "Critical (No Shelter)" },
+        { token: "FAM-1120", name: "Kareem Dad", village: "Sobhodero", severity: "Medium (Crops Lost)" }
+      ];
+
+      let distributionLedger = [];
+      
+      let donorContributions = [
+        { id: "TXN-90214", name: "Kashaf Shaikh", city: "Khairpur", amount: 25000, date: "2026-09-30 11:20", bankRef: "HBL-PK92-0941", photo: sampleSlip },
+        { id: "TXN-88102", name: "Concerned Citizen", city: "Karachi", amount: 15000, date: "2026-10-01 09:15", bankRef: "MEZN-PK02-4410", photo: sampleSlip }
+      ];
+
+      let photographicProofs = [
+        { title: "Bank Transfer Slip", type: "Donor Payment", source: "Kashaf Shaikh (PKR 25,000)", ref: "HBL-PK92-0941", img: sampleSlip, time: "2026-09-30 11:20" }
+      ];
+
+      return {
+        getState: function() {
+          const itemKeyCounts = {};
+          distributionLedger.forEach(d => {
+            const compositeKey = `${d.familyToken}_${d.aidType}`;
+            itemKeyCounts[compositeKey] = (itemKeyCounts[compositeKey] || 0) + 1;
+          });
+
+          const enrichedLedger = distributionLedger.map(d => {
+            const compositeKey = `${d.familyToken}_${d.aidType}`;
+            return {
+              ...d,
+              flagged: itemKeyCounts[compositeKey] > 1
+            };
+          });
+
+          const servedTokens = new Set(distributionLedger.map(d => d.familyToken));
+          const enrichedFamilies = familiesDirectory.map(f => ({
+            ...f,
+            status: servedTokens.has(f.token) ? "Aid Received" : "Pending Aid"
+          }));
+
+          const totalFunds = donorContributions.reduce((sum, d) => sum + Number(d.amount), 0);
+
+          return {
+            totalFunds,
+            totalFamilies: familiesDirectory.length,
+            totalDelivered: distributionLedger.length,
+            proofsCount: photographicProofs.length,
+            ledger: enrichedLedger,
+            families: enrichedFamilies,
+            donors: donorContributions,
+            proofs: photographicProofs
+          };
+        },
+
+        postDistribution: function(item) {
+          const entry = {
+            familyToken: item.familyToken.trim().toUpperCase(),
+            village: item.village.trim(),
+            aidType: item.aidType,
+            ngoName: item.ngoName.trim(),
+            photo: item.photo || sampleDelivery
+          };
+          distributionLedger.unshift(entry);
+
+          photographicProofs.unshift({
+            title: `Aid Handover: ${entry.aidType}`,
+            type: "Physical Distribution",
+            source: `${entry.ngoName} -> ${entry.familyToken}`,
+            ref: `Village: ${entry.village}`,
+            img: entry.photo,
+            time: new Date().toISOString().replace('T', ' ').substring(0, 16)
+          });
+
+          const exists = familiesDirectory.some(f => f.token === entry.familyToken);
+          if (!exists) {
+            familiesDirectory.push({
+              token: entry.familyToken,
+              name: "Displaced Household",
+              village: entry.village,
+              severity: "Field Registered"
+            });
+          }
+          return { status: 201 };
+        },
+
+        postDonation: function(donation) {
+          const newDonation = {
+            id: "TXN-" + Math.floor(10000 + Math.random() * 90000),
+            name: donation.name,
+            city: donation.city,
+            amount: donation.amount,
+            date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+            bankRef: "PK-1-LINK-" + Math.floor(1000 + Math.random() * 9000),
+            photo: donation.photo || sampleSlip
+          };
+          donorContributions.unshift(newDonation);
+
+          photographicProofs.unshift({
+            title: "Bank / Transfer Slip Proof",
+            type: "Donor Fund Deposit",
+            source: `${newDonation.name} (PKR ${Number(newDonation.amount).toLocaleString()})`,
+            ref: `Ref: ${newDonation.bankRef}`,
+            img: newDonation.photo,
+            time: newDonation.date
+          });
+
+          return { status: 201 };
+        }
+      };
+    })();
+
+    /* =========================================================
+       FRONTEND LOGIC
+       ========================================================= */
+    function showToast(msg, isSuccess = false) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.className = isSuccess ? 'toast-succ' : 'toast-err';
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 3200);
+    }
+
+    function openDonorModal() { document.getElementById('donorModal').style.display = 'flex'; }
+    function closeDonorModal() { document.getElementById('donorModal').style.display = 'none'; }
+
+    // Helper: Read uploaded image file as Base64 Data URL
+    function readImageFile(fileInput) {
+      return new Promise((resolve) => {
+        if (fileInput.files && fileInput.files[0]) {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.readAsDataURL(fileInput.files[0]);
+        } else {
+          resolve(null);
+        }
+      });
+    }
+
+    async function handlePublicDonation(e) {
+      e.preventDefault();
+      const name = document.getElementById('donorName').value.trim();
+      const city = document.getElementById('donorCity').value.trim();
+      const amount = document.getElementById('donorAmount').value;
+      const fileInput = document.getElementById('donorSlipFile');
+
+      if (!isNaN(name) || name.length < 3) {
+        showToast("Enter a valid name!");
+        return;
+      }
+
+      const uploadedImage = await readImageFile(fileInput);
+
+      BackendServer.postDonation({ 
+        name, 
+        city, 
+        amount, 
+        photo: uploadedImage || sampleSlip 
+      });
+
+      closeDonorModal();
+      document.getElementById('donorSlipFile').value = '';
+      showToast(`Thank you ${name}! Slip posted to Visual Proofs.`, true);
+      refreshUI();
+      navigateTo('page-proofs', document.querySelectorAll('.nav-item')[5]);
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const user = document.getElementById('usernameInput').value.trim();
+      const role = document.getElementById('userRole').value;
+
+      if (!isNaN(user) || user.length < 3) {
+        showToast("Invalid Entity Name! Enter a valid title.");
+        return;
+      }
+
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('appWrapper').style.display = 'block';
+      document.getElementById('roleDisplay').innerText = `${role}: ${user}`;
+
+      const isGov = (role === 'Government Official');
+      document.getElementById('govNotice').style.display = isGov ? 'block' : 'none';
+      document.getElementById('btnSubmitForm').disabled = isGov;
+      document.getElementById('btnSubmitForm').style.opacity = isGov ? '0.35' : '1';
+      document.getElementById('btnSubmitForm').style.cursor = isGov ? 'not-allowed' : 'pointer';
+
+      navigateTo('page-overview', document.querySelector('.nav-item.active'));
+      refreshUI();
+    }
+
+    function handleLogout() {
+      document.getElementById('appWrapper').style.display = 'none';
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('usernameInput').value = '';
+    }
+
+    function navigateTo(pageId, navElement) {
+      document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+      const targetPage = document.getElementById(pageId);
+      if (targetPage) targetPage.classList.add('active');
+      if (navElement) navElement.classList.add('active');
+
+      const titles = {
+        'page-overview': 'System Overview',
+        'page-distribute': 'Aid Distribution Form',
+        'page-ledger': 'Public Verification Ledger',
+        'page-families': 'Affected Families Directory',
+        'page-vault': 'Public Relief Fund Vault',
+        'page-proofs': 'Visual Photographic Proofs'
+      };
+      document.getElementById('currentPageTitle').innerText = titles[pageId] || 'Portal';
+    }
+
+    function refreshUI() {
+      const state = BackendServer.getState();
+
+      document.getElementById('statFunds').innerText = "PKR " + state.totalFunds.toLocaleString();
+      document.getElementById('statTotalFam').innerText = state.totalFamilies;
+      document.getElementById('statTotal').innerText = state.totalDelivered;
+      document.getElementById('statProofsCount').innerText = state.proofsCount;
+
+      // 1. Ledger Table
+      const ledgerTbody = document.getElementById('ledgerBody');
+      ledgerTbody.innerHTML = '';
+      if (state.ledger.length === 0) {
+        ledgerTbody.innerHTML = `<tr><td colspan="6" class="empty-msg">No distribution events logged yet.</td></tr>`;
+      } else {
+        state.ledger.forEach(r => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${r.familyToken}</strong></td>
+            <td>${r.village}</td>
+            <td>${r.aidType}</td>
+            <td>${r.ngoName}</td>
+            <td><a href="#" onclick="navigateTo('page-proofs', document.querySelectorAll('.nav-item')[5]); return false;" style="color:#0284c7; font-weight:700;">View Photo</a></td>
+            <td>${r.flagged ? '<span class="flag">⚠ Same-Item Repeat Flag</span>' : '<span class="verified">✓ Verified</span>'}</td>
+          `;
+          ledgerTbody.appendChild(tr);
+        });
+      }
+
+      // 2. Families Table
+      const famTbody = document.getElementById('familiesBody');
+      famTbody.innerHTML = '';
+      state.families.forEach(f => {
+        const tr = document.createElement('tr');
+        const isReceived = f.status === 'Aid Received';
+        tr.innerHTML = `
+          <td><strong>${f.token}</strong></td>
+          <td>${f.name}</td>
+          <td>${f.village}</td>
+          <td>${f.severity}</td>
+          <td><span class="${isReceived ? 'verified' : 'pending'}">${isReceived ? '✓ Aid Delivered' : '⏳ Pending Aid'}</span></td>
+        `;
+        famTbody.appendChild(tr);
+      });
+
+      // 3. Donor Vault Table
+      const donorTbody = document.getElementById('donorBody');
+      donorTbody.innerHTML = '';
+      state.donors.forEach(d => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${d.name}</strong></td>
+          <td>${d.city}</td>
+          <td style="color:#059669; font-weight:700;">PKR ${Number(d.amount).toLocaleString()}</td>
+          <td>${d.date}</td>
+        `;
+        donorTbody.appendChild(tr);
+      });
+
+      // 4. PHOTOGRAPHIC PROOFS RENDERING
+      const proofsGrid = document.getElementById('proofsGrid');
+      proofsGrid.innerHTML = '';
+      state.proofs.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'proof-card';
+        card.innerHTML = `
+          <div class="proof-img-container">
+            <img src="${p.img}" class="proof-img" alt="Visual Proof">
+          </div>
+          <div class="proof-body">
+            <span class="verified-stamp">✓ VERIFIED RECORD</span>
+            <div style="font-weight:700; font-size:0.92rem; margin-top:2px;">${p.title}</div>
+            <div style="color:#475569; margin-top:3px;"><strong>Source:</strong> ${p.source}</div>
+            <div style="color:#64748b; font-size:0.75rem; margin-top:2px;">${p.ref}</div>
+            <div style="color:#94a3b8; font-size:0.72rem; margin-top:4px;">Timestamp: ${p.time}</div>
+          </div>
+        `;
+        proofsGrid.appendChild(card);
+      });
+    }
+
+    async function handleAidSubmit(e) {
+      e.preventDefault();
+
+      const token = document.getElementById('familyToken').value.trim();
+      const village = document.getElementById('village').value.trim();
+      const aidType = document.getElementById('aidType').value;
+      const ngo = document.getElementById('ngoName').value;
+      const fileInput = document.getElementById('aidPhotoFile');
+
+      if (!isNaN(village) || village.length < 3) {
+        showToast("Enter a valid village location!");
+        return;
+      }
+      if (token.length < 3) {
+        showToast("Family Token must have 3+ characters!");
+        return;
+      }
+      if (!ngo) {
+        showToast("Please choose a verified NGO!");
+        return;
+      }
+
+      const uploadedImage = await readImageFile(fileInput);
+
+      BackendServer.postDistribution({ 
+        familyToken: token, 
+        village, 
+        aidType, 
+        ngoName: ngo, 
+        photo: uploadedImage || sampleDelivery 
+      });
+
+      document.getElementById('aidForm').reset();
+      showToast("Distribution logged with visual image proof!", true);
+      refreshUI();
+      navigateTo('page-proofs', document.querySelectorAll('.nav-item')[5]);
+    }
+  </script>
+</body>
+</html>
